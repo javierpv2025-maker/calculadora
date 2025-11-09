@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Calculadora RMT — Excel-like (3 UITs y detalle tramos)</title>
+<style>
+  :root{
+    --bg:#f7f9fb; --card:#fff; --blue:#0056b3; --accent:#eef6ff;
+    --yellow1:#fff7d6; /* editable regular (light) */
+    --yellow2:#ffeaa3; /* editable clave (dark) */
+    --table-head:#f0f4f8;
+  }
+  body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);margin:0;padding:14px;color:#111}
+  h1{text-align:center;color:var(--blue);margin:6px 0 14px}
+  .card{max-width:980px;margin:auto;background:var(--card);border-radius:10px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  label{font-weight:600;font-size:13px}
+  input[type=number], input[type=text], select{width:100%;padding:8px;border-radius:6px;border:1px solid #cbd5e1;font-size:14px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  button{background:var(--blue);color:white;padding:10px 12px;border-radius:8px;border:none;cursor:pointer}
+  button.secondary{background:#6c757d}
+  button.warn{background:#c65900}
+  .small{font-size:13px;color:#333}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+  th,td{padding:8px;border:1px solid #e6edf3;text-align:right}
+  th{background:var(--table-head);font-weight:700;color:#0b3b66}
+  td.left, th.left{text-align:left}
+  .editable{background:var(--yellow1)}
+  .editable-key{background:var(--yellow2)}
+  .resultBox{background:var(--accent);padding:10px;border-radius:8px;margin-top:12px}
+  .muted{color:#555;font-size:13px}
+  .smallCenter{text-align:center;font-size:13px;color:#333}
+  .totals{font-weight:700;background:#f1f9ff}
+  .mini{font-size:12px;color:#444}
+  @media (max-width:900px){
+    .row{flex-direction:column}
+    table{font-size:12px}
+  }
+  input.cell{background:transparent;border:none;text-align:right;padding:4px}
+  /* highlight editable cells visually inside table */
+  td input.editable{background:var(--yellow1);border-radius:4px;padding:6px}
+  td input.editable-key{background:var(--yellow2);border-radius:4px;padding:6px}
+</style>
+</head>
+<body>
+  <h1>Calculadora RMT — Reproducción Excel (3 UITs y detalle)</h1>
+  <div class="card">
+    <!-- Parámetros generales -->
+    <div><strong>Parámetros (amarillo oscuro = datos clave)</strong></div>
+
+    <div class="row" style="margin-top:8px">
+      <div style="flex:1 1 150px">
+        <label>Periodos a mostrar (1–32)</label>
+        <input id="periodosCount" type="number" value="12" min="1" max="32"/>
+      </div>
+      <div style="flex:1 1 160px">
+        <label>Mes de declaración anual (0 = no declarada). Ej: 5 = mayo</label>
+        <input id="mesDeclaracion" type="number" value="5" min="0" max="12"/>
+      </div>
+      <div style="flex:1 1 120px">
+        <label>IGV (%)</label>
+        <input id="igvPct" type="number" value="18" min="0" step="0.01"/>
+      </div>
+      <div style="flex:1 1 140px">
+        <label>UIT — Año declarado (editable clave)</label>
+        <input id="uitDeclarado" class="editable-key" type="number" value="5350" min="0" step="0.01"/>
+      </div>
+      <div style="flex:1 1 120px">
+        <label>% Participación empleados</label>
+        <input id="porcPart" class="editable-key" type="number" value="7" min="0" step="0.01"/>
+      </div>
+    </div>
+
+    <hr style="margin:12px 0"/>
+
+    <!-- Ejercicios A y B con su propia UIT -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="flex:1 1 340px">
+        <strong>Ejercicio A (p.ej. 2024) — datos clave</strong>
+        <div class="row" style="margin-top:6px">
+          <div style="flex:1 1 120px"><label>UIT Ej. A</label><input id="uitA" class="editable-key" type="number" value="4950" step="0.01"/></div>
+          <div style="flex:1 1 140px"><label>Utilidades antes part. e impuestos</label><input id="uaA" class="editable-key" type="number" value="2997699" step="0.01"/></div>
+          <div style="flex:1 1 120px"><label>Adiciones</label><input id="adA" class="editable-key" type="number" value="555555" step="0.01"/></div>
+          <div style="flex:1 1 120px"><label>Deducciones</label><input id="dedA" class="editable-key" type="number" value="444444" step="0.01"/></div>
+          <div style="flex:1 1 160px"><label>Ingresos netos (para coef.)</label><input id="ingA" class="editable-key" type="number" value="3666666" step="0.01"/></div>
+        </div>
+      </div>
+
+      <div style="flex:1 1 340px">
+        <strong>Ejercicio B (p.ej. 2023) — datos clave</strong>
+        <div class="row" style="margin-top:6px">
+          <div style="flex:1 1 120px"><label>UIT Ej. B</label><input id="uitB" class="editable-key" type="number" value="4950" step="0.01"/></div>
+          <div style="flex:1 1 140px"><label>Utilidades antes part. e impuestos</label><input id="uaB" class="editable-key" type="number" value="2645555" step="0.01"/></div>
+          <div style="flex:1 1 120px"><label>Adiciones</label><input id="adB" class="editable-key" type="number" value="444444" step="0.01"/></div>
+          <div style="flex:1 1 120px"><label>Deducciones</label><input id="dedB" class="editable-key" type="number" value="333333" step="0.01"/></div>
+          <div style="flex:1 1 160px"><label>Ingresos netos (para coef.)</label><input id="ingB" class="editable-key" type="number" value="7985555" step="0.01"/></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls" style="margin-top:10px">
+      <button onclick="generarTabla()">Generar tabla</button>
+      <button onclick="calcularTodo()">Calcular todo</button>
+      <button class="secondary" onclick="resetAll()">Reset</button>
+      <button class="warn" onclick="exportCSV()">Exportar CSV</button>
+    </div>
+
+    <!-- Tabla periodos -->
+    <div style="overflow:auto;margin-top:12px">
+      <table id="tablaPeriodos">
+        <thead>
+          <tr>
+            <th class="left">Per.</th>
+            <th>Ventas</th>
+            <th>Compras</th>
+            <th>IGV Ventas</th>
+            <th>IGV Compras</th>
+            <th>IGV a Pagar</th>
+            <th>Saldo ant (editable)</th>
+            <th>Total a Pagar IGV</th>
+            <th>Coef % aplicado</th>
+            <th>Pago a Cuenta</th>
+            <th>Acumulado Ventas</th>
+          </tr>
+        </thead>
+        <tbody id="bodyPeriodos"></tbody>
+        <tfoot>
+          <tr class="totals">
+            <td class="left">Totales</td>
+            <td id="totVentas">0</td>
+            <td id="totCompras">0</td>
+            <td id="totIGVDeb">0</td>
+            <td id="totIGVCred">0</td>
+            <td id="totIGVNeto">0</td>
+            <td>-</td>
+            <td id="totPagarIGV">0</td>
+            <td>-</td>
+            <td id="totPagosCuenta">0</td>
+            <td id="totAcumVentas">0</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Resumen tipo cuadro con detalle de tramos -->
+    <div class="resultBox" style="margin-top:12px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1 1 420px">
+          <strong>Resumen tipo cuadro (igual a Excel)</strong>
+          <table style="width:100%;margin-top:8px;font-size:13px">
+            <tr><td class="left">Concepto</td><td class="left">Ejercicio A</td><td class="left">Ejercicio B</td></tr>
+            <tr><td class="left">Utilidades antes de part. e imp.</td><td id="r_uaA">-</td><td id="r_uaB">-</td></tr>
+            <tr><td class="left">Adiciones</td><td id="r_adA">-</td><td id="r_adB">-</td></tr>
+            <tr><td class="left">Deducciones</td><td id="r_dedA">-</td><td id="r_dedB">-</td></tr>
+            <tr><td class="left">Renta Neta</td><td id="r_rnA">-</td><td id="r_rnB">-</td></tr>
+            <tr><td class="left">Participación empleados (config)</td><td id="r_partA">-</td><td id="r_partB">-</td></tr>
+            <tr><td class="left">Renta Neta Imponible</td><td id="r_rniA">-</td><td id="r_rniB">-</td></tr>
+            <!-- Detalle tramos dentro del mismo cuadro -->
+            <tr><td class="left">Hasta 15 UIT (base en S/)</td><td id="r_base15A">-</td><td id="r_base15B">-</td></tr>
+            <tr><td class="left">Impuesto 10% sobre hasta 15 UIT (S/)</td><td id="r_imp10A">-</td><td id="r_imp10B">-</td></tr>
+            <tr><td class="left">Exceso sobre 15 UIT (base en S/)</td><td id="r_excesoA">-</td><td id="r_excesoB">-</td></tr>
+            <tr><td class="left">Impuesto 29.5% sobre exceso (S/)</td><td id="r_imp29A">-</td><td id="r_imp29B">-</td></tr>
+            <tr><td class="left">Impuesto calculado (Total)</td><td id="r_impA">-</td><td id="r_impB">-</td></tr>
+            <tr><td class="left">Coeficiente (Impuesto / Ingresos netos)</td><td id="r_coefA">-</td><td id="r_coefB">-</td></tr>
+          </table>
+        </div>
+
+        <div style="flex:1 1 300px">
+          <strong>Totales tabla periodos</strong>
+          <table style="width:100%;margin-top:8px;font-size:13px">
+            <tr><td class="left">Total Ventas</td><td id="sumVentas">-</td></tr>
+            <tr><td class="left">Total Compras</td><td id="sumCompras">-</td></tr>
+            <tr><td class="left">Total IGV Débito</td><td id="sumIGVDeb">-</td></tr>
+            <tr><td class="left">Total IGV Crédito</td><td id="sumIGVCred">-</td></tr>
+            <tr><td class="left">Total IGV Neto</td><td id="sumIGVNeto">-</td></tr>
+            <tr><td class="left">Total Pagos a Cuenta (suma)</td><td id="sumPagosCuenta">-</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px" class="smallCenter muted">
+      Las celdas amarillas son editables (amarillo claro = datos regulares; amarillo oscuro = datos clave que normalmente cambias).
+    </div>
+  </div>
+
+<script>
+/* ---------- Formato y utilidades ---------- */
+function fmt(n){
+  if (isNaN(n)) return '0.00';
+  return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function parseNum(v){ const n = Number(String(v||'').replace(/,/g,'')); return isNaN(n)?0:n; }
+
+/* ---------- Generar tabla ---------- */
+function generarTabla(){
+  const body = document.getElementById('bodyPeriodos');
+  body.innerHTML = '';
+  const count = Math.max(1, Math.min(32, parseInt(document.getElementById('periodosCount').value || 12)));
+  for(let i=1;i<=count;i++){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="left">${i} - ${mesNombre(i)}</td>
+      <td><input class="editable cell ventas" data-per="${i}" type="number" step="0.01" value="0" style="width:100%"/></td>
+      <td><input class="editable cell compras" data-per="${i}" type="number" step="0.01" value="0" style="width:100%"/></td>
+      <td class="debito" id="dv${i}">0.00</td>
+      <td class="credito" id="cv${i}">0.00</td>
+      <td class="neto" id="nv${i}">0.00</td>
+      <td><input class="editable cell saldoAnt" data-per="${i}" type="number" step="0.01" value="0" style="width:100%"/></td>
+      <td id="totIGV${i}">0.00</td>
+      <td id="coefAplicado${i}">0.00 %</td>
+      <td id="pagoCuenta${i}">0.00</td>
+      <td id="acumVentas${i}">0.00</td>
+    `;
+    body.appendChild(tr);
+  }
+  attachInputEvents();
+}
+
+/* attach events to editable inputs so recalculation occurs on change */
+function attachInputEvents(){
+  const nodes = document.querySelectorAll('#bodyPeriodos input.cell');
+  nodes.forEach(n=>{
+    n.classList.contains('saldoAnt') ? n.classList.add('editable') : n.classList.add('editable');
+    n.classList.add(n.classList.contains('saldoAnt') ? 'editable' : 'editable');
+    n.addEventListener('input', ()=>{ calcularTabla(); });
+  });
+}
+
+/* ---------- Calcular coeficientes con detalle de tramos ---------- */
+function calcularCoeficientes(){
+  const porcPart = parseNum(document.getElementById('porcPart').value)/100;
+
+  // Ejercicio A
+  const uitA = parseNum(document.getElementById('uitA').value);
+  const uaA = parseNum(document.getElementById('uaA').value);
+  const adA = parseNum(document.getElementById('adA').value);
+  const dedA = parseNum(document.getElementById('dedA').value);
+  const ingA = parseNum(document.getElementById('ingA').value);
+
+  const rentaNetaA = uaA + adA - dedA;
+  const partA = rentaNetaA * porcPart;
+  const rentaImponibleA = rentaNetaA - partA;
+  const tramoA = 15 * uitA;
+
+  let base15A = Math.min(Math.max(rentaImponibleA,0),tramoA);
+  let excesoA = rentaImponibleA > tramoA ? (rentaImponibleA - tramoA) : 0;
+  let imp10A = base15A * 0.10;
+  let imp29A = excesoA * 0.295;
+  let impuestoA = (imp10A + imp29A);
+
+  // Ejercicio B
+  const uitB = parseNum(document.getElementById('uitB').value);
+  const uaB = parseNum(document.getElementById('uaB').value);
+  const adB = parseNum(document.getElementById('adB').value);
+  const dedB = parseNum(document.getElementById('dedB').value);
+  const ingB = parseNum(document.getElementById('ingB').value);
+
+  const rentaNetaB = uaB + adB - dedB;
+  const partB = rentaNetaB * porcPart;
+  const rentaImponibleB = rentaNetaB - partB;
+  const tramoB = 15 * uitB;
+
+  let base15B = Math.min(Math.max(rentaImponibleB,0),tramoB);
+  let excesoB = rentaImponibleB > tramoB ? (rentaImponibleB - tramoB) : 0;
+  let imp10B = base15B * 0.10;
+  let imp29B = excesoB * 0.295;
+  let impuestoB = (imp10B + imp29B);
+
+  const coefA = ingA>0 ? impuestoA / ingA : 0;
+  const coefB = ingB>0 ? impuestoB / ingB : 0;
+
+  // Llenar resumen cuadro (valores y detalle)
+  document.getElementById('r_uaA').innerText = fmt(uaA);
+  document.getElementById('r_adA').innerText = fmt(adA);
+  document.getElementById('r_dedA').innerText = fmt(dedA);
+  document.getElementById('r_rnA').innerText = fmt(rentaNetaA);
+  document.getElementById('r_partA').innerText = fmt(partA);
+  document.getElementById('r_rniA').innerText = fmt(rentaImponibleA);
+  document.getElementById('r_base15A').innerText = fmt(base15A);
+  document.getElementById('r_imp10A').innerText = fmt(imp10A);
+  document.getElementById('r_excesoA').innerText = fmt(excesoA);
+  document.getElementById('r_imp29A').innerText = fmt(imp29A);
+  document.getElementById('r_impA').innerText = fmt(impuestoA);
+  document.getElementById('r_coefA').innerText = (coefA*100).toFixed(4) + ' %';
+
+  document.getElementById('r_uaB').innerText = fmt(uaB);
+  document.getElementById('r_adB').innerText = fmt(adB);
+  document.getElementById('r_dedB').innerText = fmt(dedB);
+  document.getElementById('r_rnB').innerText = fmt(rentaNetaB);
+  document.getElementById('r_partB').innerText = fmt(partB);
+  document.getElementById('r_rniB').innerText = fmt(rentaImponibleB);
+  document.getElementById('r_base15B').innerText = fmt(base15B);
+  document.getElementById('r_imp10B').innerText = fmt(imp10B);
+  document.getElementById('r_excesoB').innerText = fmt(excesoB);
+  document.getElementById('r_imp29B').innerText = fmt(imp29B);
+  document.getElementById('r_impB').innerText = fmt(impuestoB);
+  document.getElementById('r_coefB').innerText = (coefB*100).toFixed(4) + ' %';
+
+  return {coefA, coefB};
+}
+
+/* ---------- Calcular tabla periodos ---------- */
+function calcularTabla(){
+  const igvPct = parseNum(document.getElementById('igvPct').value)/100;
+  const mesDecl = parseInt(document.getElementById('mesDeclaracion').value) || 0;
+  const {coefA, coefB} = calcularCoeficientes();
+
+  const rows = document.querySelectorAll('#bodyPeriodos tr');
+  let acumVentas = 0;
+  let sumVentas=0, sumCompras=0, sumIGVDeb=0, sumIGVCred=0, sumIGVNeto=0, sumPagarIGV=0, sumPagosCuenta=0;
+
+  rows.forEach((tr, idx)=>{
+    const per = idx+1;
+    const inputV = tr.querySelector('input.ventas');
+    const inputC = tr.querySelector('input.compras');
+    const inputSaldo = tr.querySelector('input.saldoAnt');
+
+    const ventas = parseNum(inputV.value);
+    const compras = parseNum(inputC.value);
+    const saldoAnt = parseNum(inputSaldo.value);
+
+    const igvVentas = ventas * igvPct;
+    const igvCompras = compras * igvPct;
+    const igvAPagar = igvVentas - igvCompras;
+    const totalAPagarIGV = igvAPagar + saldoAnt;
+
+    // acumulado ventas
+    acumVentas += ventas;
+
+    // elegir coeficiente aplicado según mes de declaración:
+    let coefAplicado = 0;
+    if (mesDecl === 0) coefAplicado = coefB;
+    else if (per < mesDecl) coefAplicado = coefB;
+    else coefAplicado = coefA;
+
+    const pagoCuenta = acumVentas * coefAplicado;
+
+    // escribir en celdas
+    document.getElementById('dv'+per).innerText = fmt(igvVentas);
+    document.getElementById('cv'+per).innerText = fmt(igvCompras);
+    document.getElementById('nv'+per).innerText = fmt(igvAPagar);
+    document.getElementById('totIGV'+per).innerText = fmt(totalAPagarIGV);
+    document.getElementById('coefAplicado'+per).innerText = (coefAplicado*100).toFixed(4) + ' %';
+    document.getElementById('pagoCuenta'+per).innerText = fmt(pagoCuenta);
+    document.getElementById('acumVentas'+per).innerText = fmt(acumVentas);
+
+    // sumas totales
+    sumVentas += ventas;
+    sumCompras += compras;
+    sumIGVDeb += igvVentas;
+    sumIGVCred += igvCompras;
+    sumIGVNeto += igvAPagar;
+    sumPagarIGV += totalAPagarIGV;
+    sumPagosCuenta += pagoCuenta;
+  });
+
+  // actualizar footer totales
+  document.getElementById('totVentas').innerText = fmt(sumVentas);
+  document.getElementById('totCompras').innerText = fmt(sumCompras);
+  document.getElementById('totIGVDeb').innerText = fmt(sumIGVDeb);
+  document.getElementById('totIGVCred').innerText = fmt(sumIGVCred);
+  document.getElementById('totIGVNeto').innerText = fmt(sumIGVNeto);
+  document.getElementById('totPagarIGV').innerText = fmt(sumPagarIGV);
+  document.getElementById('totPagosCuenta').innerText = fmt(sumPagosCuenta);
+  document.getElementById('totAcumVentas').innerText = fmt(sumVentas); // final acumulado
+
+  // resumen lado derecho
+  document.getElementById('sumVentas').innerText = fmt(sumVentas);
+  document.getElementById('sumCompras').innerText = fmt(sumCompras);
+  document.getElementById('sumIGVDeb').innerText = fmt(sumIGVDeb);
+  document.getElementById('sumIGVCred').innerText = fmt(sumIGVCred);
+  document.getElementById('sumIGVNeto').innerText = fmt(sumIGVNeto);
+  document.getElementById('sumPagosCuenta').innerText = fmt(sumPagosCuenta);
+}
+
+/* ---------- Calcular todo (coefic., tabla y totales) ---------- */
+function calcularTodo(){
+  if (document.getElementById('bodyPeriodos').children.length === 0) generarTabla();
+  calcularCoeficientes();
+  calcularTabla();
+  alert('Cálculo completado — revisa la tabla y el resumen.');
+}
+
+/* ---------- Reset ---------- */
+function resetAll(){
+  if (!confirm('¿Resetear todo a valores por defecto?')) return;
+  document.getElementById('periodosCount').value = 12;
+  document.getElementById('mesDeclaracion').value = 5;
+  document.getElementById('igvPct').value = 18;
+  document.getElementById('uitDeclarado').value = 5350;
+  document.getElementById('porcPart').value = 7;
+
+  document.getElementById('uitA').value = 4950;
+  document.getElementById('uaA').value = 2997699;
+  document.getElementById('adA').value = 555555;
+  document.getElementById('dedA').value = 444444;
+  document.getElementById('ingA').value = 3666666;
+
+  document.getElementById('uitB').value = 4950;
+  document.getElementById('uaB').value = 2645555;
+  document.getElementById('adB').value = 444444;
+  document.getElementById('dedB').value = 333333;
+  document.getElementById('ingB').value = 7985555;
+
+  generarTabla();
+  calcularTabla();
+}
+
+/* ---------- Export CSV ---------- */
+function exportCSV(){
+  const headers = ['Periodo','Ventas','Compras','IGV Ventas','IGV Compras','IGV a Pagar','Saldo ant','Total a Pagar IGV','Coef % aplicado','Pago a Cuenta','Acumulado Ventas'];
+  const rows = [];
+  const bodyRows = document.querySelectorAll('#bodyPeriodos tr');
+  bodyRows.forEach((tr,idx)=>{
+    const per = idx+1;
+    const ventas = parseNum(tr.querySelector('input.ventas').value);
+    const compras = parseNum(tr.querySelector('input.compras').value);
+    const igvV = parseNum(document.getElementById('dv'+per).innerText);
+    const igvC = parseNum(document.getElementById('cv'+per).innerText);
+    const igvN = parseNum(document.getElementById('nv'+per).innerText);
+    const saldo = parseNum(tr.querySelector('input.saldoAnt').value);
+    const totigv = parseNum(document.getElementById('totIGV'+per).innerText);
+    const coef = document.getElementById('coefAplicado'+per).innerText;
+    const pago = parseNum(document.getElementById('pagoCuenta'+per).innerText);
+    const acum = parseNum(document.getElementById('acumVentas'+per).innerText);
+    rows.push([per, ventas, compras, igvV, igvC, igvN, saldo, totigv, coef, pago, acum]);
+  });
+
+  const csvParts = [];
+  csvParts.push(['Parametros']);
+  csvParts.push(['Periodos', document.getElementById('periodosCount').value]);
+  csvParts.push(['MesDeclaracion', document.getElementById('mesDeclaracion').value]);
+  csvParts.push(['IGV%', document.getElementById('igvPct').value]);
+  csvParts.push(['UIT Declarado', document.getElementById('uitDeclarado').value]);
+  csvParts.push(['UIT Ej A', document.getElementById('uitA').value]);
+  csvParts.push(['UIT Ej B', document.getElementById('uitB').value]);
+  csvParts.push([]);
+  csvParts.push(headers);
+  rows.forEach(r=> csvParts.push(r));
+  const csvString = csvParts.map(r=> r.map(c=> typeof c === 'string' ? `"${c.replace(/"/g,'""')}"` : (c===null||c===undefined?'':c)).join(',')).join('\r\n');
+  const blob = new Blob([csvString], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'RMT_periodos_export.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- ayuda: nombre mes ---------- */
+function mesNombre(n){
+  const m = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Setiembre','Octubre','Noviembre','Diciembre'];
+  return m[(n-1)%12] || '';
+}
+
+/* ---------- init ---------- */
+(function init(){
+  generarTabla();
+  calcularCoeficientes();
+  calcularTabla();
+})();
+</script>
+</body>
+</html>
